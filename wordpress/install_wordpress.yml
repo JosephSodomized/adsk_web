@@ -1,0 +1,67 @@
+---
+- hosts: web_nodes
+  become: yes
+  vars:
+    wordpress_url: https://pl.wordpress.org/wordpress-4.9.8-pl_PL.tar.gz
+  tasks:
+    - name: "Apache server"
+      yum:
+        name: httpd
+        state: latest
+    - name: "Install php"
+      yum:
+        name: "{{item}}"
+        state: latest
+      with_items:
+        - php
+        - php-mysql
+    - name : "Wordpress"
+      get_url:
+        url: https://pl.wordpress.org/wordpress-4.9.8-pl_PL.tar.gz
+        dest: ~/wordpress.tar.gz
+    - name: "unarchive wordpress archive"
+      unarchive:
+        src: ~/wordpress.tar.gz
+        dest: /var/www/
+        remote_src: yes
+    - name: "Configure vhost"
+      copy:
+        src: template/vhosts.conf
+        dest: /etc/httpd/conf.d/wordpress.conf
+    - name: "Copy wordpress config to destination"
+      copy:
+       src: template/wp-config.php
+       dest: /var/www/wordpress
+    - name: "Start Serv"
+      service:
+        name: httpd
+        state: restarted
+
+- hosts: db_nodes
+  become: yes
+  tasks:
+    - name: "Install db server"
+      yum:
+        name: "{{item}}"
+      with_items:
+        - mariadb
+        - mariadb-server
+    - service:
+        name: mariadb
+        state: started
+    - name: "Install python dependencies"
+      yum:
+        name: MySQL-python
+        state: present
+    - name: "Set Database"
+      mysql_db:
+        name: db_base
+        state: present
+    # Create database user with name 'bob' and password '12345' with all database privileges
+    - mysql_user:
+        name: dm
+        password: 666
+        priv: '*.*:ALL'
+        host: '172.31.18.140'
+        state: present
+

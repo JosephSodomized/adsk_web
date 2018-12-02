@@ -3,6 +3,7 @@
   become: yes
   vars:
     wordpress_url: https://pl.wordpress.org/wordpress-4.9.8-pl_PL.tar.gz
+    telegraf_url: https://dl.influxdata.com/telegraf/releases/telegraf-1.8.3-1.x86_64.rpm
   tasks:
     - name: "Apache server"
       yum:
@@ -53,15 +54,20 @@
       yum:
         name: MySQL-python
         state: present
+    - name: "Start service mariadb, if not started"
+      service:
+        name: mariadb
+        state: started
     - name: "Set Database"
       mysql_db:
         name: db_base
         state: present
     # Create database user with name 'bob' and password '12345' with all database privileges
-    - mysql_user:
-        name: dm
-        password: 666
-        priv: '*.*:ALL'
-        host: '172.31.18.140'
+    - name: "Create User"
+      mysql_user:
+        name: bob
+        password: 12345
+        priv: '*.*:ALL,GRANT'
+        host: "%"
         state: present
 

@@ -4,6 +4,7 @@
   vars:
     wordpress_url: https://pl.wordpress.org/wordpress-4.9.8-pl_PL.tar.gz
     telegraf_url: https://dl.influxdata.com/telegraf/releases/telegraf-1.8.3-1.x86_64.rpm
+    metric_store_ip: 172.31.23.183
   tasks:
     - name: "Apache server"
       yum:
@@ -36,6 +37,19 @@
     - name: "Start Serv"
       service:
         name: httpd
+        state: restarted
+    # Create Telegraf
+    - name: "Install telegraf"
+      yum:
+        name: "{{telegraf_url}}"
+        state: present
+    - name: "copy cfg info est"
+      template:
+        src: template/telegraf.conf
+        dest: /etc/telegraf/telegraf.conf
+    - name: "start telegraf"
+      service:
+        name: "telegraf"
         state: restarted
 
 - hosts: db_nodes
@@ -70,4 +84,41 @@
         priv: '*.*:ALL,GRANT'
         host: "%"
         state: present
+
+- hosts: stats_nodes
+  become: yes
+  vars:
+    influx_url: https://dl.influxdata.com/influxdb/releases/influxdb-1.7.1.x86_64.rpm
+    grafana_url: https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-5.3.4-1.x86_64.rpm
+  tasks:
+    - name: "Install influx"
+      yum:
+        name: "{{influx_url}}"
+        state: present
+    - service:
+        name: influxdb
+        state: started
+    - name: "Install grafana"
+      yum:
+        name: "{{grafana_url}}"
+        state: present
+    - name: "Copy Grafana configuration"
+      template:
+        src: ./templates/grafana.ini
+        dest: /etc/grafana/grafana.ini
+    - name: "Create datasource for Grafana"
+      grafana_datasource:
+        name: "influxdb"
+        grafana_url: "https://127.0.0.1:8080"
+        grafana_user: "admin"
+        grafana_password: "admin"
+        org_id: "1"
+        ds_type: "influxdb"
+        url: "https://{{metric_store_ip}}:8086"
+        database: "telegraf"
+        time_interval: ">10s"
+        tls_ca_cert: "/etc/ssl/certs/ca.pem"
+    - service:
+        name: "grafana-server"
+        state: started
 
